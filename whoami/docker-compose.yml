@@ -12,7 +12,7 @@ services:
       - "traefik.backend=whoami"
       - "traefik.frontend.rule=Path(`/whoami/`)"
       - "traefik.docker.network=web"
-      - "traefik.http.routers.whoami.rule=Host(`debian`)"
+      - "traefik.http.routers.whoami.rule=(Host(`debian`) && PathPrefix(`/whoami`))"
       - "traefik.http.routers.whoami.entrypoints=web"
 
 networks:
