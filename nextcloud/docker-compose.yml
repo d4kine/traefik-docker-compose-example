@@ -1,0 +1,69 @@
+version: '3.3'
+
+services:
+
+  nextcloud-db:
+    image: postgres
+    container_name: nextcloud-db
+    hostname: nextcloud-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: nextcloud
+      POSTGRES_HOST: nextcloud-db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./database:/var/lib/postgresql/data
+    networks:
+      - default
+
+  nextcloud-app:
+    image: nextcloud
+    container_name: nextcloud
+    hostname: nextcloud
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: nextcloud
+      POSTGRES_HOST: nextcloud-db
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD: admin
+      REDIS_HOST: debian
+      REDIS_HOST_PORT: 6379
+      #REDIS_HOST_PASSWORD: 
+      NEXTCLOUD_TRUSTED_DOMAINS: debian
+      APACHE_DISABLE_REWRITE_IP: 1
+      OVERWRITEWEBROOT: /cloud
+      # TODO: overwrite.cli.url
+    links:
+      - nextcloud-db
+    volumes:
+      - ./nextcloud:/var/www/html
+      - ./apps:/var/www/html/custom_apps
+      - ./config:/var/www/html/config
+      - ./data:/var/www/html/data
+      #- "./theme:/var/www/html/themes/<YOUR_CUSTOM_THEME>"
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.nextcloud-app.entrypoints=web"
+      - "traefik.http.routers.nextcloud-app.rule=PathPrefix(`/cloud`)"
+      - "traefik.http.routers.nextcloud-app.middlewares=nextcloud-dav,nextcloud-stripprefix,nextcloud-redirect"
+      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.regex=^/.well-known/ca(l|rd)dav"
+      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement=/remote.php/dav/"
+      - "traefik.http.middlewares.nextcloud-stripprefix.stripprefix.prefixes=/cloud/,/cloud"
+      - "traefik.http.middlewares.nextcloud-redirect.redirectregex.regex=^(http:\\/\\/(\\[[\\w:.]+\\]|[\\w\\._-]+)(:\\d+)?)\\/cloud$$"
+      - "traefik.http.middlewares.nextcloud-redirect.redirectregex.replacement=$${1}/cloud/"
+      - "traefik.http.middlewares.nextcloud-redirect.redirectregex.permanent=true"
+      #- "traefik.http.services.nextcloud-app.loadbalancer.server.port=80"
+
+networks:
+  proxy:
+    external: true
